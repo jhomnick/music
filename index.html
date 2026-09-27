@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Music</title>
+<meta name="description" content="My music library, from OneDrive, anywhere.">
+<meta name="theme-color" content="#0d0e12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Music">
+<link rel="stylesheet" href="css/app.css">
+<script src="vendor/msal-browser.min.js" defer></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect fill="currentColor" x="6" y="5" width="4.2" height="14" rx="1.2"/><rect fill="currentColor" x="13.8" y="5" width="4.2" height="14" rx="1.2"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path fill="currentColor" d="M5 6.2v11.6a1 1 0 0 0 1.55.83L15 13v4.5a1 1 0 0 0 2 0v-11a1 1 0 0 0-2 0V11L6.55 5.37A1 1 0 0 0 5 6.2z"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.2v11.6a1 1 0 0 1-1.55.83L9 13v4.5a1 1 0 0 1-2 0v-11a1 1 0 0 1 2 0V11l8.45-5.63A1 1 0 0 1 19 6.2z"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m17 1 4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></symbol>
+    <symbol id="i-repeat1" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m17 1 4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/><path fill="currentColor" d="M11 9.5h1.6v5.5H11v-3.9l-1 .5v-1.3z"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle fill="currentColor" cx="5" cy="12" r="1.8"/><circle fill="currentColor" cx="12" cy="12" r="1.8"/><circle fill="currentColor" cx="19" cy="12" r="1.8"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15zM21 21l-5.2-5.2"/></symbol>
+    <symbol id="i-columns" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M3 4h18v16H3zM9 4v16M15 4v16"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M3 5h18l-7 8.5V20l-4-2v-4.5z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-queue" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 6h13M3 12h13M3 18h8"/><path fill="currentColor" d="M16 15v6l5-3z"/></symbol>
+    <symbol id="i-library" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 4v16M9 4v16M14 5l5 15"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l2.2 6.3L20.5 10.5l-6.3 2.2L12 19l-2.2-6.3L3.5 10.5l6.3-2.2zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle fill="none" stroke="currentColor" stroke-width="2" cx="12" cy="12" r="9"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path fill="currentColor" d="m12 2.8 2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3L2.9 9.5l6.3-.9z"/></symbol>
+    <symbol id="i-fire" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c1 3.5 5 5.6 5 10.5A5 5 0 0 1 7 13c0-2 .8-3.3 2-4.5.2 1.7 1 2.8 2 3.3C11 8.5 10.5 5 12 2z"/></symbol>
+    <symbol id="i-new" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-skip" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 5l9 7-9 7zM19 5v14"/></symbol>
+    <symbol id="i-ghost" viewBox="0 0 24 24"><circle fill="none" stroke="currentColor" stroke-width="2" cx="12" cy="12" r="9" stroke-dasharray="3 3"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M7 18h10a4 4 0 0 0 .7-7.94A6 6 0 0 0 6.1 9.1 4.5 4.5 0 0 0 7 18z"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle fill="none" stroke="currentColor" stroke-width="2" cx="12" cy="12" r="3"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M12 2.5l1.6 2.3 2.8-.4.6 2.7 2.5 1.4-1 2.5 1 2.5-2.5 1.4-.6 2.7-2.8-.4L12 21.5l-1.6-2.3-2.8.4-.6-2.7-2.5-1.4 1-2.5-1-2.5 2.5-1.4.6-2.7 2.8.4z"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></symbol>
+    <symbol id="i-eq" viewBox="0 0 24 24"><rect fill="currentColor" x="4" y="10" width="3.2" height="10" rx="1"><animate attributeName="height" values="10;4;10" dur="0.9s" repeatCount="indefinite"/><animate attributeName="y" values="10;16;10" dur="0.9s" repeatCount="indefinite"/></rect><rect fill="currentColor" x="10.4" y="5" width="3.2" height="15" rx="1"><animate attributeName="height" values="15;7;15" dur="1.1s" repeatCount="indefinite"/><animate attributeName="y" values="5;13;5" dur="1.1s" repeatCount="indefinite"/></rect><rect fill="currentColor" x="16.8" y="8" width="3.2" height="12" rx="1"><animate attributeName="height" values="12;5;12" dur="0.8s" repeatCount="indefinite"/><animate attributeName="y" values="8;15;8" dur="0.8s" repeatCount="indefinite"/></rect></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 6h11M4 12h8M4 18h7M17 13v8M13 17h8"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-disc" viewBox="0 0 24 24"><circle fill="none" stroke="currentColor" stroke-width="2" cx="12" cy="12" r="9"/><circle fill="currentColor" cx="12" cy="12" r="2.5"/></symbol>
+    <symbol id="i-logo" viewBox="0 0 48 48"><rect width="48" height="48" rx="12" fill="url(#lg)"/><path fill="#fff" d="M31 11.5v17.2a5.2 5.2 0 1 1-2.6-4.5V17l-10 2.6v12.1a5.2 5.2 0 1 1-2.6-4.5V15.6a1.3 1.3 0 0 1 1-1.26l12.6-3.3a1.3 1.3 0 0 1 1.6 1.26z"/><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a5c"/><stop offset="1" stop-color="#e5376b"/></linearGradient></symbol>
+  </defs>
+</svg>
+
+<!-- Start-up screens -->
+<section id="screen-loading" class="screen">
+  <div class="card center">
+    <svg class="logo big"><use href="#i-logo"/></svg>
+    <div class="spinner"></div>
+    <p id="loading-text" class="muted">Starting…</p>
+  </div>
+</section>
+
+<section id="screen-setup" class="screen" hidden>
+  <form class="card" id="setup-form">
+    <div class="brandline"><svg class="logo"><use href="#i-logo"/></svg><h1>Music</h1></div>
+    <p>Connect your OneDrive to play your library from anywhere. One-time setup: register a free Microsoft app and paste its <b>Application (client) ID</b> here. The README walks through it in about five minutes.</p>
+    <label>Application (client) ID
+      <input id="setup-client" required pattern="[0-9a-fA-F-]{36}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off" spellcheck="false">
+    </label>
+    <label>Where your music lives
+      <select id="setup-acct">
+        <option value="personal">Personal OneDrive (personal Microsoft account)</option>
+        <option value="work">Work or school OneDrive</option>
+      </select>
+    </label>
+    <p class="hint">Redirect URI to register (type “Single-page application”): <code id="setup-redirect"></code></p>
+    <label>Last.fm API key <span class="muted">(optional — public ratings, similar artists)</span>
+      <input id="setup-lastfm" placeholder="32-character key" autocomplete="off" spellcheck="false">
+    </label>
+    <div class="row">
+      <button class="btn primary" type="submit">Save &amp; continue</button>
+      <button class="btn ghost" type="button" id="setup-demo">Try the demo library</button>
+    </div>
+  </form>
+</section>
+
+<section id="screen-signin" class="screen" hidden>
+  <div class="card center">
+    <svg class="logo big"><use href="#i-logo"/></svg>
+    <h1>Music</h1>
+    <p class="muted">Sign in with the Microsoft account that holds your music.</p>
+    <button class="btn primary big" id="signin-btn">Sign in with Microsoft</button>
+    <p class="small"><a href="#" id="signin-setup">Change app settings</a> · <a href="#" id="signin-demo">Try the demo</a></p>
+    <p id="signin-error" class="error" hidden></p>
+  </div>
+</section>
+
+<!-- App -->
+<div id="app" hidden>
+  <aside id="side" aria-label="Navigation">
+    <div class="brand"><svg class="logo"><use href="#i-logo"/></svg><span>Music</span><span id="demo-badge" class="badge" hidden>DEMO</span></div>
+    <nav id="nav"></nav>
+    <div id="jobs"></div>
+  </aside>
+  <div id="scrim"></div>
+  <main id="main">
+    <header id="bar">
+      <button id="btn-menu" class="icon-btn only-narrow" aria-label="Menu"><svg class="i"><use href="#i-menu"/></svg></button>
+      <div class="titles">
+        <h1 id="view-title">Library</h1>
+        <div id="view-meta" class="muted"></div>
+      </div>
+      <label class="search">
+        <svg class="i"><use href="#i-search"/></svg>
+        <input id="search" type="search" placeholder="Search artist, album, song, genre, year…" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="actions">
+        <button id="btn-play" class="btn primary" title="Play this list in order"><svg class="i"><use href="#i-play"/></svg><span>Play</span></button>
+        <button id="btn-shuffle" class="btn" title="Shuffle this list"><svg class="i"><use href="#i-shuffle"/></svg><span>Shuffle</span></button>
+        <button id="btn-mix" class="btn" title="Build a quick mix"><svg class="i"><use href="#i-spark"/></svg><span>Mix</span></button>
+        <button id="btn-save" class="icon-btn" title="Save this list as a playlist"><svg class="i"><use href="#i-save"/></svg></button>
+        <button id="btn-filters" class="icon-btn" title="Column filters"><svg class="i"><use href="#i-filter"/></svg></button>
+        <button id="btn-cols" class="icon-btn" title="Choose columns"><svg class="i"><use href="#i-columns"/></svg></button>
+        <button id="btn-settings" class="icon-btn" title="Library &amp; settings"><svg class="i"><use href="#i-settings"/></svg></button>
+      </div>
+    </header>
+    <div id="chips"></div>
+    <div id="table"></div>
+  </main>
+
+  <footer id="player">
+    <div class="p-left">
+      <button id="p-art" class="p-art" title="Now playing"></button>
+      <div class="p-text">
+        <div id="p-title" class="p-title">Nothing playing</div>
+        <div id="p-sub" class="p-sub muted"></div>
+      </div>
+      <div id="p-rate" class="rate"></div>
+    </div>
+    <div class="p-center">
+      <div class="ctrls">
+        <button id="c-shuffle" class="icon-btn toggle" title="Shuffle"><svg class="i"><use href="#i-shuffle"/></svg></button>
+        <button id="c-prev" class="icon-btn" title="Previous"><svg class="i"><use href="#i-prev"/></svg></button>
+        <button id="c-play" class="play-btn" title="Play / Pause (space)"><svg class="i"><use href="#i-play"/></svg></button>
+        <button id="c-next" class="icon-btn" title="Next (counts as a skip early in the song)"><svg class="i"><use href="#i-next"/></svg></button>
+        <button id="c-repeat" class="icon-btn toggle" title="Replay: off"><svg class="i"><use href="#i-repeat"/></svg></button>
+      </div>
+      <div class="seek">
+        <span id="t-cur">0:00</span>
+        <input id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
+        <span id="t-dur">0:00</span>
+      </div>
+    </div>
+    <div class="p-right">
+      <button id="c-similar" class="icon-btn" title="Mix of songs like this one"><svg class="i"><use href="#i-spark"/></svg></button>
+      <button id="c-queue" class="icon-btn" title="Up next"><svg class="i"><use href="#i-queue"/></svg></button>
+      <svg class="i muted"><use href="#i-volume"/></svg>
+      <input id="vol" type="range" min="0" max="1" step="0.01" aria-label="Volume">
+    </div>
+  </footer>
+</div>
+
+<!-- Full-screen now playing -->
+<section id="sheet" hidden>
+  <div class="sheet-bg" id="sheet-bg"></div>
+  <div class="sheet-inner">
+    <button class="icon-btn sheet-close" id="sheet-close" aria-label="Close"><svg class="i"><use href="#i-down"/></svg></button>
+    <div class="sheet-art" id="sheet-art"></div>
+    <div class="sheet-text">
+      <h2 id="sheet-title"></h2>
+      <p id="sheet-sub" class="muted"></p>
+      <div id="sheet-rate" class="rate big"></div>
+    </div>
+    <div class="seek">
+      <span id="s-cur">0:00</span>
+      <input id="s-seek" type="range" min="0" max="1000" value="0" aria-label="Seek">
+      <span id="s-dur">0:00</span>
+    </div>
+    <div class="ctrls big">
+      <button id="s-shuffle" class="icon-btn toggle" title="Shuffle"><svg class="i"><use href="#i-shuffle"/></svg></button>
+      <button id="s-prev" class="icon-btn" title="Previous"><svg class="i"><use href="#i-prev"/></svg></button>
+      <button id="s-play" class="play-btn" title="Play / Pause"><svg class="i"><use href="#i-play"/></svg></button>
+      <button id="s-next" class="icon-btn" title="Next"><svg class="i"><use href="#i-next"/></svg></button>
+      <button id="s-repeat" class="icon-btn toggle" title="Replay"><svg class="i"><use href="#i-repeat"/></svg></button>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn" id="s-similar"><svg class="i"><use href="#i-spark"/></svg><span>More like this</span></button>
+      <button class="btn" id="s-queue"><svg class="i"><use href="#i-queue"/></svg><span>Up next</span></button>
+    </div>
+  </div>
+</section>
+
+<div id="menu" class="menu" hidden role="menu"></div>
+</body>
+</html>
