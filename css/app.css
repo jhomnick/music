@@ -273,7 +273,7 @@ dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(3px); }
 .dlg-b { padding: 8px 18px 12px; overflow-y: auto; max-height: calc(100vh - 170px); }
 .dlg-f { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 18px 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .dlg-b label.f { display: grid; gap: 5px; margin: 12px 0; font-size: 13px; font-weight: 600; }
-.dlg-b input[type=text], .dlg-b input[type=password], .dlg-b input:not([type]) { height: 38px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); padding: 0 11px; }
+.dlg-b input[type=text], .dlg-b input[type=password], .dlg-b input[type=search], .dlg-b input:not([type]) { height: 38px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); padding: 0 11px; }
 .dlg-b input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .dlg-b .check { display: flex; align-items: center; gap: 10px; margin: 10px 0; font-weight: 500; }
 .dlg-b .check input { width: 18px; height: 18px; accent-color: var(--accent); }
@@ -344,3 +344,13 @@ dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(3px); }
   .nav-i .cnt { display: none; }
 }
 .hidden { display: none !important; }
+
+/* ---------- missing-songs list (imported playlists) ---------- */
+.linkbtn { border: 0; background: none; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.linkbtn:hover { filter: brightness(1.15); }
+.missing-list { list-style: none; margin: 4px 0 0; padding: 0; font-size: 14px; }
+.missing-list li { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 12px; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+.missing-list li:last-child { border-bottom: 0; }
+.missing-list .ma { font-weight: 600; overflow-wrap: anywhere; }
+.missing-list .ms { color: var(--muted); overflow-wrap: anywhere; }
+@media (max-width: 760px) { .missing-list li { grid-template-columns: 1fr; gap: 0; } .missing-list .ma:empty { display: none; } }

@@ -1,5 +1,5 @@
 // Music — app shell: start-up, navigation, table, player UI, dialogs
-import { $, $$, el, icon, debounce, fmtTime, fmtDur, fmtSize, fmtDate, fmtNum, norm, toast, isNarrow, sleep } from './util.js';
+import { $, $$, el, icon, debounce, fmtTime, fmtDur, fmtSize, fmtDate, fmtNum, norm, sortText, toast, isNarrow, sleep } from './util.js';
 import { prefs, savePrefs } from './prefs.js';
 import { initAuth, login, logout, getAccount, redirectUri } from './auth.js';
 import { lib, loadLocal, saveLocal, stats as libStats, FAMILY_NAMES } from './library.js';
@@ -247,7 +247,12 @@ function refreshView(keepScroll) {
   S.table.setRows(S.rows, { keepScroll });
   const dur = S.rows.reduce((t, s) => t + (s.duration || 0), 0);
   const filtered = S.rows.length !== base.length;
-  $('#view-meta').textContent = `${fmtNum(S.rows.length)}${filtered ? ' of ' + fmtNum(base.length) : ''} songs · ${fmtDur(dur)}`;
+  const meta = $('#view-meta');
+  meta.textContent = `${fmtNum(S.rows.length)}${filtered ? ' of ' + fmtNum(base.length) : ''} songs · ${fmtDur(dur)}`;
+  const miss = S.view.imported?.missing;
+  if (miss?.length) {
+    meta.append(' · ', el('button', { class: 'linkbtn', title: 'Songs on this playlist that aren’t in your library', onclick: () => missingDialog(S.view.imported) }, `${fmtNum(miss.length)} missing`));
+  }
   $('#btn-mix').title = S.search || Object.keys(S.filters).length || S.viewId !== 'library' ? 'Mix of songs similar to this list' : 'Random mix of ' + prefs.mixSize + ' songs';
   updateChips();
   updateNavCounts();
@@ -773,6 +778,41 @@ function dialog(title, body, buttons = [{ label: 'Close', value: null }]) {
   document.body.append(dlg);
   dlg.showModal();
   return { dlg, close, done, foot };
+}
+
+// Songs on an imported playlist that didn't match anything in the library
+function missingDialog(p) {
+  const split = (x) => { const m = /^(.+?)\s+-\s+(.+)$/.exec(x); return m ? [m[1].trim(), m[2].trim()] : ['', x]; };
+  const items = p.missing.map(split).sort((a, b) => sortText(a[0]).localeCompare(sortText(b[0])) || sortText(a[1]).localeCompare(sortText(b[1])));
+  const q = el('input', { type: 'search', placeholder: 'Filter by artist or song…', autocomplete: 'off', spellcheck: 'false' });
+  const count = el('p', { class: 'muted small' });
+  const list = el('ol', { class: 'missing-list' });
+  let shown = items;
+  const render = () => {
+    const t = norm(q.value.trim());
+    shown = t ? items.filter(([a, s]) => norm(a + ' ' + s).includes(t)) : items;
+    count.textContent = `${fmtNum(p.songIds.length)} of ${fmtNum(p.songIds.length + items.length)} songs are in your library. ${t ? `Showing ${fmtNum(shown.length)} of ${fmtNum(items.length)} missing.` : `These ${fmtNum(items.length)} aren't:`}`;
+    let last = null;
+    list.replaceChildren(...shown.map(([a, s]) => {
+      const li = el('li', {}, el('span', { class: 'ma', text: a === last ? '' : a || '—' }), el('span', { class: 'ms', text: s }));
+      last = a;
+      return li;
+    }));
+  };
+  q.addEventListener('input', render);
+  render();
+  const text = () => shown.map(([a, s]) => (a ? `${a} - ${s}` : s)).join('\n');
+  dialog(`Missing from ${p.name}`, el('div', {}, count, el('label', { class: 'f' }, q), list), [
+    { label: 'Copy list', cls: 'ghost', onClick: async () => { try { await navigator.clipboard.writeText(text()); toast(`Copied ${fmtNum(shown.length)} songs`); } catch { toast('Couldn’t copy — try Download instead'); } } },
+    { label: 'Download .csv', cls: 'ghost', onClick: () => {
+      const esc = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+      const csv = '\ufeffArtist,Song\r\n' + shown.map(([a, s]) => esc(a) + ',' + esc(s)).join('\r\n') + '\r\n';
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      el('a', { href: url, download: `${p.name} - missing.csv` }).click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } },
+    { label: 'Close', value: null, cls: 'primary' },
+  ]);
 }
 
 function promptDialog(title, label, value = '') {

@@ -64,10 +64,18 @@ function bestBySuffix(cands, segs) {
   return best;
 }
 
-export function matchEntries(entries, idx = buildIndex()) {
+// Readable "Artist - Title" for an entry, from its #EXTINF hint or else its file name
+export function entryLabel(e) {
+  if (e.hint) return e.hint.trim();
+  const f = e.path.replace(/\\/g, '/').split('/').pop() || e.path;
+  try { return decodeURIComponent(f).replace(/\.[^.]+$/, ''); } catch { return f.replace(/\.[^.]+$/, ''); }
+}
+
+// Returns matched song ids; entries that matched nothing are pushed onto `missing` (if given)
+export function matchEntries(entries, idx = buildIndex(), missing = null) {
   const ids = [];
   for (const e of entries) {
-    if (/^[a-z]+:\/\//i.test(e.path) && !/^file:/i.test(e.path)) continue; // streams/URLs
+    if (/^[a-z]+:\/\//i.test(e.path) && !/^file:/i.test(e.path)) continue; // streams/URLs (not counted as missing)
     let p = e.path.replace(/^file:\/+/i, '');
     try { p = decodeURIComponent(p); } catch { /* keep */ }
     const segs = p.replace(/\\/g, '/').split('/').filter((x) => x && x !== '.' && x !== '..').map(norm);
@@ -82,13 +90,18 @@ export function matchEntries(entries, idx = buildIndex()) {
       if (m) { c = idx.byAT.get(norm(m[1]) + '|' + normTitle(m[2])); if (c) s = c[0]; }
     }
     if (s) ids.push(s.id);
+    else if (missing) missing.push(entryLabel(e));
   }
   return ids;
 }
 
 export async function importPlaylists(onProgress) {
   const M = lib.meta;
-  const files = Object.entries(M.playlistFiles || {}).filter(([id, f]) => M.importedPlaylists[id]?.modified !== f.modified);
+  const files = Object.entries(M.playlistFiles || {}).filter(([id, f]) => {
+    const p = M.importedPlaylists[id];
+    // re-match when the file changed, when it predates the missing-songs list, or when the library gained/lost songs
+    return !p || p.modified !== f.modified || !p.missing || p.libCount !== lib.songs.length;
+  });
   if (!files.length) return 0;
   const idx = buildIndex();
   let done = 0;
@@ -100,8 +113,9 @@ export async function importPlaylists(onProgress) {
         if (!urls[k]) return;
         const buf = await (await fetch(urls[k])).arrayBuffer();
         const entries = parsePlaylist(f.ext, decodeText(buf));
-        const songIds = matchEntries(entries, idx);
-        M.importedPlaylists[id] = { id, name: f.name, songIds, total: entries.length, modified: f.modified };
+        const missing = [];
+        const songIds = matchEntries(entries, idx, missing);
+        M.importedPlaylists[id] = { id, name: f.name, songIds, missing, total: entries.length, modified: f.modified, libCount: lib.songs.length };
       } catch (e) { console.warn('Playlist import failed', f.name, e); }
       done++;
       onProgress?.(done, files.length);
