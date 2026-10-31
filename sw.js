@@ -1,6 +1,6 @@
 // Offline shell for the Music app. Network-first so GitHub Pages updates show up right away;
 // falls back to the cached copy when offline. Never caches OneDrive/Graph/music traffic.
-const CACHE = 'music-shell-v1';
+const CACHE = 'music-shell-v2';
 const SHELL = ['./', 'index.html', 'css/app.css', 'vendor/msal-browser.min.js', 'manifest.webmanifest', 'icons/icon.svg',
   'js/main.js', 'js/util.js', 'js/db.js', 'js/prefs.js', 'js/auth.js', 'js/graph.js', 'js/library.js', 'js/userdata.js',
   'js/sync.js', 'js/formats.js', 'js/view.js', 'js/mix.js', 'js/player.js', 'js/scanner.js', 'js/playlists.js', 'js/tags.js',
