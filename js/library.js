@@ -101,6 +101,8 @@ export function genreFamilies(tokens) {
 export const FAMILY_NAMES = FAMILIES.map((f) => f[0]);
 
 export function derive(s) {
+  if (s.year != null && s.year !== '') s.year = +s.year || undefined;
+  if (s.track != null && s.track !== '') s.track = +s.track || undefined;
   s._path = folderPath(s.parentId);
   s._added = Date.parse(s.added) || 0;
   s._gen = genreTokens(s.genre);

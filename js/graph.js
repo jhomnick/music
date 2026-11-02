@@ -154,3 +154,15 @@ export async function thumbUrl(id) {
   if (!t) return null;
   return (t.large || t.medium || t.small || {}).url || null;
 }
+
+// Rename a file in place. The item id stays the same, so play counts, ratings and playlists follow it.
+export async function renameItem(id, name) {
+  const r = await gfetch(`/me/drive/items/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (r.status === 409) throw new Error('A file with that name already exists in this folder.');
+  if (!r.ok) throw new GraphError(r.status, await r.text());
+  return r.json();
+}

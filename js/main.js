@@ -2,7 +2,9 @@
 import { $, $$, el, icon, debounce, fmtTime, fmtDur, fmtSize, fmtDate, fmtNum, norm, toast, isNarrow, sleep } from './util.js';
 import { prefs, savePrefs } from './prefs.js';
 import { initAuth, login, logout, getAccount, redirectUri } from './auth.js';
-import { lib, loadLocal, saveLocal, stats as libStats, FAMILY_NAMES } from './library.js';
+import { lib, loadLocal, saveLocal, stats as libStats, FAMILY_NAMES, derive } from './library.js';
+import { renameItem } from './graph.js';
+import { AUDIO_EXT } from './formats.js';
 import * as U from './userdata.js';
 import { remoteUserData, pullUserData, remoteLibraryMeta, localLibEtag, downloadLibrary, uploadLibrary } from './sync.js';
 import { COLUMNS, COL, DEFAULT_WIDE, DEFAULT_NARROW, applyView, colText, sortRows } from './view.js';
@@ -27,6 +29,7 @@ const S = {
   sorts: {},        // viewId -> [{key, dir}]
   table: null,
   narrow: isNarrow(),
+  editMode: false,
 };
 
 // =====================================================================
@@ -166,6 +169,7 @@ function enterApp() {
   U.events.addEventListener('change', (e) => {
     const k = e.detail?.kind;
     if (k === 'sync' || k === 'playlist') { buildNav(); refreshView(true); }
+    else if (k === 'edit') { S.table?.refresh(); navSoon(); const c = P.current(); if (c && (!e.detail.id || e.detail.id === c.id)) updatePlayer(); }
     else S.table?.refresh();
     if (k === 'rating') renderRating();
   });
@@ -279,6 +283,12 @@ function buildTable() {
     isActive: (s, i) => (S.rowIdx ? S.rowIdx[i] === P.st.idx : s.id === P.st.queue[P.st.idx]),
     emptyText: () => (lib.songs.length ? 'No matching songs' : 'Your library is empty — open Settings to choose your OneDrive music folder.'),
     closeMenus: () => closeMenu(),
+    editMode: () => S.editMode,
+    canEdit: (key) => EDIT_KEYS.includes(key),
+    editValue: (s, key) => (s[key] ?? '') + '',
+    onEdit: (s, key, v) => saveField(s, key, v),
+    onEditRow: (s) => editSongDialog(s),
+    isEdited: (s, key) => { const x = U.getUd().edits[s.id]?.[key]; return !!x && x[0] !== null; },
   });
   $('#btn-filters').classList.toggle('on', !!prefs.showFilters);
 }
@@ -340,6 +350,7 @@ function wireChrome() {
   $('#btn-save').addEventListener('click', () => saveListAsPlaylist(S.rows, S.view.queue ? 'Mix ' + fmtDate(Date.now()) : S.search ? S.search : S.view.title));
   $('#btn-filters').addEventListener('click', () => { prefs.showFilters = !prefs.showFilters; savePrefs(); $('#btn-filters').classList.toggle('on', prefs.showFilters); if (!prefs.showFilters && Object.keys(S.filters).length) { S.filters = {}; refreshView(true); } S.table.buildHeader(); });
   $('#btn-cols').addEventListener('click', () => columnsDialog());
+  $('#btn-edit').addEventListener('click', () => setEditMode(!S.editMode));
   $('#btn-settings').addEventListener('click', () => settingsDialog());
   $('#btn-menu').addEventListener('click', () => $('#app').classList.toggle('drawer'));
   $('#scrim').addEventListener('click', () => $('#app').classList.remove('drawer'));
@@ -384,6 +395,12 @@ function chip(label, ic, fn, hot = false) {
 function updateChips() {
   const box = $('#chips');
   const out = [];
+  if (S.editMode) {
+    out.push(chip('Done editing', 'x', () => setEditMode(false), true));
+    out.push(el('span', { class: 'muted small edit-hint', text: 'Click a Title, Artist, Album, Album Artist, Genre, Year, # or File Name cell to fix it · Enter saves & moves down · Tab next field · Esc cancels' }));
+    box.replaceChildren(...out);
+    return;
+  }
   if (S.narrow && !S.view.queue) {
     const cur = (S.sorts[S.viewId] || [])[0];
     out.push(chip(`Sort: ${cur ? COL[cur.key].label + (cur.dir === 'desc' ? ' ↓' : ' ↑') : 'None'}`, 'list', (e) => sortMenu(e)));
@@ -548,6 +565,9 @@ function cellMenu(s, key, i, e) {
   items.push({ label: 'Play next', icon: 'queue', action: () => P.enqueue([s], { playNext: true }) });
   items.push({ label: 'Add to queue', icon: 'list', action: () => P.enqueue([s]) });
   items.push({ label: 'Mix of songs like this', icon: 'spark', action: () => similarToSong(s) });
+  items.push({ sep: true });
+  if (key && EDIT_KEYS.includes(key) && !S.narrow) items.push({ label: `Edit ${COL[key].label}`, icon: 'edit', action: () => S.table.startEdit(i, key) });
+  items.push({ label: 'Edit song info…', icon: 'edit', action: () => editSongDialog(s) });
 
   const valueCol = col && !['art', 'rating', 'playlists', 'title', 'song', 'file'].includes(col.key);
   if (valueCol) {
@@ -593,7 +613,179 @@ function valueActions(col, v) {
     { label: 'Shuffle all', icon: 'shuffle', n: fmtNum(matches.length), action: () => P.playList(matches, null, { shuffle: true }) },
     { label: 'Similar mix', icon: 'spark', action: () => { P.playList(similarMix(matches.length > 400 ? sampleArr(matches, 400) : matches, prefs.mixSize), null, { shuffle: true }); setView('queue'); } },
     { label: 'Show all in library', icon: 'search', action: () => setView('library', { filters: { [col.key]: col.type === 'text' ? '=' + v : String(col.type === 'date' ? fmtDate(v) : v) } }) },
+    EDIT_KEYS.includes(col.key) && col.key !== 'file' && col.key !== 'title' ? { label: `Change ${col.label} on all ${fmtNum(matches.length)}…`, icon: 'edit', action: () => bulkValueDialog(col, v, matches) } : null,
   ];
+}
+
+// =====================================================================
+// Editing song info
+// =====================================================================
+const EDIT_KEYS = ['title', 'artist', 'albumArtist', 'album', 'genre', 'year', 'track', 'file'];
+const navSoon = debounce(() => buildNav(), 1500);
+const saveLibrarySoon = debounce(async () => {
+  if (S.mode !== 'graph') return;
+  try { await uploadLibrary(); } catch (e) { console.warn(e); await saveLocal().catch(() => {}); }
+}, 20000);
+
+function setEditMode(on) {
+  S.editMode = on;
+  $('#btn-edit').classList.toggle('on', on);
+  $('#app').classList.toggle('editing', on);
+  S.table.finishEdit(true);
+  if (!on) refreshView(true); // re-sort / re-filter now that editing is done
+  else updateChips();
+  if (on) toast('Edit mode: click a cell to fix it');
+}
+
+// Turn typed text into a stored value; returns undefined (and explains) if it's not valid
+function parseField(key, raw) {
+  const v = String(raw ?? '').trim().replace(/\s+/g, ' ');
+  if (key === 'year') {
+    if (!v) return '';
+    if (!/^\d{4}$/.test(v) || +v < 1000 || +v > 2100) { toast('Year should be four digits, like 1979'); return undefined; }
+    return +v;
+  }
+  if (key === 'track') {
+    if (!v) return '';
+    if (!/^\d{1,3}$/.test(v) || +v < 1) { toast('Track should be a number, like 6'); return undefined; }
+    return +v;
+  }
+  return v;
+}
+
+function saveField(s, key, raw) {
+  if (key === 'file') return renameSong(s, raw);
+  const v = parseField(key, raw);
+  if (v === undefined) return false;
+  U.editSongs([s.id], { [key]: v });
+  return true;
+}
+
+const BAD_NAME = /[\\/:*?"<>|]/;
+async function renameSong(s, raw) {
+  let name = String(raw ?? '').trim();
+  if (!name) return false;
+  if (BAD_NAME.test(name)) { toast('File names can’t contain \\ / : * ? " < > |'); return false; }
+  const m = /\.([a-z0-9]{2,4})$/i.exec(name);
+  if (m && AUDIO_EXT.has(m[1].toLowerCase())) name = name.slice(0, -m[0].length).trim();
+  name = name.replace(/[. ]+$/, '');
+  if (!name) return false;
+  name += '.' + (/\.([^.]+)$/.exec(s.file)?.[1] || s.ext); // keep the original extension
+  if (name === s.file) return true;
+  try {
+    if (S.mode === 'graph') {
+      const res = await renameItem(s.id, name);
+      name = res?.name || name;
+    }
+    s.file = name;
+    derive(s);
+    S.table.refresh();
+    saveLibrarySoon();
+    if (S.mode === 'graph') toast('Renamed on OneDrive');
+    return true;
+  } catch (e) {
+    toast('Couldn’t rename: ' + (e.message || e), 6000);
+    return false;
+  }
+}
+
+function suggestions(key) {
+  const set = new Map();
+  for (const s of lib.songs) { const v = s[key]; if (v) { const k = norm(v); if (!set.has(k)) set.set(k, v); } }
+  return [...set.values()].sort((a, b) => String(a).localeCompare(String(b)));
+}
+
+function editSongDialog(s) {
+  const fields = [
+    ['title', 'Title'], ['artist', 'Artist'], ['albumArtist', 'Album Artist'], ['album', 'Album'],
+    ['genre', 'Genre'], ['year', 'Year'], ['track', 'Track #'], ['file', 'File name'],
+  ];
+  const shared = ['artist', 'albumArtist', 'album', 'genre', 'year'];
+  const inputs = {};
+  const lists = [];
+  const grid = el('div', { class: 'editgrid' });
+  for (const [k, label] of fields) {
+    const attrs = { type: 'text', value: (s[k] ?? '') + '', spellcheck: 'false', autocomplete: 'off' };
+    if (k === 'year' || k === 'track') attrs.inputmode = 'numeric';
+    if (['artist', 'albumArtist', 'genre'].includes(k)) {
+      const id = 'dl-' + k;
+      attrs.list = id;
+      const dl = el('datalist', { id });
+      lists.push([dl, k]);
+    }
+    const inp = el('input', attrs);
+    inputs[k] = inp;
+    const orig = U.originalValue(s.id, k);
+    const was = U.getUd().edits[s.id]?.[k]?.[0] != null ? el('span', { class: 'was', text: `was: ${orig === '' || orig == null ? '(blank)' : orig}` }) : null;
+    grid.append(el('label', { class: 'f' + (k === 'title' || k === 'file' ? ' wide' : '') }, el('span', {}, label, was ? ' ' : '', was), inp));
+  }
+  // datalists are filled after opening so the dialog appears instantly
+  setTimeout(() => { for (const [dl, k] of lists) { dl.replaceChildren(...suggestions(k).slice(0, 4000).map((v) => el('option', { value: v }))); grid.append(dl); } }, 0);
+
+  const albumSongs = lib.songs.filter((x) => x.parentId === s.parentId && norm(x.album) === norm(s.album));
+  const listSongs = S.rows.includes(s) ? S.rows : [];
+  const scope = el('select', {},
+    el('option', { value: 'one', text: 'This song only' }),
+    albumSongs.length > 1 ? el('option', { value: 'album', text: `All ${fmtNum(albumSongs.length)} songs on this album` }) : null,
+    listSongs.length > 1 && listSongs.length <= 5000 ? el('option', { value: 'list', text: `All ${fmtNum(listSongs.length)} songs in this list` }) : null);
+  const scopeRow = scope.options.length > 1 ? el('label', { class: 'f wide' }, 'Apply Artist, Album Artist, Album, Genre and Year changes to', scope) : null;
+  const body = el('div', {}, grid, scopeRow,
+    el('p', { class: 'muted small', text: 'Changes are saved with your library and sync to your other devices. Renaming the file renames it on OneDrive; the tags inside the music files aren’t changed.' }));
+
+  const buttons = [];
+  if (U.hasEdits(s.id)) buttons.push({ label: 'Restore original', cls: 'ghost', onClick: (close) => { U.revertSong(s.id); refreshView(true); toast('Original info restored'); close(); } });
+  buttons.push({ label: 'Cancel', value: null, cls: 'ghost' });
+  buttons.push({ label: 'Save', cls: 'primary', onClick: async (close) => {
+    const patch = {};
+    for (const [k] of fields) {
+      if (k === 'file') continue;
+      const before = (s[k] ?? '') + '';
+      if (inputs[k].value.trim() === before.trim()) continue;
+      const v = parseField(k, inputs[k].value);
+      if (v === undefined) { inputs[k].focus(); return; }
+      patch[k] = v;
+    }
+    const which = scope.value;
+    const targets = which === 'album' ? albumSongs : which === 'list' ? listSongs : [s];
+    const own = {}, wide = {};
+    for (const [k, v] of Object.entries(patch)) (shared.includes(k) ? wide : own)[k] = v;
+    if (Object.keys(own).length) U.editSongs([s.id], own);
+    if (Object.keys(wide).length) U.editSongs(targets.map((x) => x.id), wide);
+    const fileChanged = inputs.file.value.trim() !== s.file;
+    if (fileChanged && !(await renameSong(s, inputs.file.value))) { inputs.file.focus(); return; }
+    close();
+    refreshView(true);
+    const n = Object.keys(wide).length && targets.length > 1 ? targets.length : 1;
+    if (Object.keys(patch).length) toast(n > 1 ? `Updated ${fmtNum(n)} songs` : 'Song info updated');
+  } });
+  const d = dialog('Edit song info', body, buttons);
+  for (const inp of Object.values(inputs)) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buttons[buttons.length - 1].el.click(); } });
+  setTimeout(() => { inputs.title.focus(); inputs.title.select(); }, 30);
+  return d.done;
+}
+
+// Fix one value everywhere it appears, e.g. Artist "Pink Floid" → "Pink Floyd" on 116 songs
+async function bulkValueDialog(col, oldValue, songs) {
+  const inp = el('input', { type: 'text', value: String(oldValue), spellcheck: 'false', autocomplete: 'off' });
+  if (col.key === 'year') inp.inputMode = 'numeric';
+  const d = dialog(`Change ${col.label}`, el('div', {},
+    el('label', { class: 'f' }, `New ${col.label.toLowerCase()} for all ${fmtNum(songs.length)} songs with “${oldValue}”`, inp),
+    el('p', { class: 'muted small', text: 'Each song keeps its original value, so you can restore it later from Edit song info.' })), [
+    { label: 'Cancel', value: null, cls: 'ghost' },
+    { label: `Change ${fmtNum(songs.length)} songs`, cls: 'primary', onClick: (close) => {
+      const v = parseField(col.key, inp.value);
+      if (v === undefined) return;
+      if (String(v) === String(oldValue)) return close();
+      U.editSongs(songs.map((x) => x.id), { [col.key]: v });
+      close();
+      refreshView(true);
+      buildNav();
+      toast(`Updated ${fmtNum(songs.length)} songs`);
+    } },
+  ]);
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') d.foot.lastChild.click(); });
+  setTimeout(() => { inp.focus(); inp.select(); }, 30);
+  return d.done;
 }
 
 function ratingMenu(s, e) {

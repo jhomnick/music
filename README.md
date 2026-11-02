@@ -55,10 +55,20 @@ Get a free key at https://www.last.fm/api/account/create (any app name; callback
 | Save the current list | The *save* icon next to Mix (in *Now Playing* it saves the queue) |
 | Rate a song | Click the stars in the *My Rating* column or the player |
 | Choose columns | Columns icon (desktop) or Settings → *Choose columns* (phone) |
+| Fix a mislabeled song | Pencil button, then click the cell, or click a cell → *Edit song info…* |
+
+### Fixing mislabeled songs
+- **Edit mode** (pencil button in the toolbar): click any *Title, Artist, Album Artist, Album, Genre, Year, #* or *File Name* cell and type. **Enter** saves and moves down a row, **Tab** moves to the next field, **Esc** cancels. Click **Done editing** when finished; the list re-sorts then.
+- **One cell:** click a cell → *Edit Artist* (or whichever column).
+- **Whole song:** click a cell → *Edit song info…* (or select a row and press **F2**). From here you can apply Artist, Album Artist, Album, Genre and Year changes to *all songs on the same album*, or to every song in the current list.
+- **Fix a value everywhere:** click an Artist, Album, Album Artist, Genre or Year cell → *Change Artist on all 116…*. For example, change "Pink Floid" to "Pink Floyd" in one step.
+- Fixed fields get a dotted underline. *Edit song info… → Restore original* undoes all fixes on a song.
+- Fixes are saved in `userdata.json` and sync to your other devices. They survive rescans. The tags inside the music files aren't changed, so other players still show the old info.
+- **Renaming the file name renames the actual file on OneDrive.** The extension is kept automatically. Play counts, ratings and playlists stay attached to the song.
 
 **Column filters** (funnel icon): text columns match anything containing the text; `=Rush` means exactly, `!live` excludes, `^The` starts with, `=` alone finds blanks. Number columns take `>256`, `<=3`, `1970-1979`, `=5`; time takes `>5:00`; dates take `<30d` (within 30 days) or `>2024-01-01`.
 
-**Keyboard:** Space play/pause · N next · P previous · S shuffle · R replay mode · / search.
+**Keyboard:** Space play/pause · N next · P previous · S shuffle · R replay mode · / search · F2 edit selected song.
 
 **How plays and skips are counted:** a play counts once you've actually heard half the song or 4 minutes, whichever comes first (seeking ahead doesn't count). A skip counts when you press Next (or pick another song) before that point. *Previous* is never a skip. Click any cell of a song → *Reset play & skip counts* if something got mis-counted.
 

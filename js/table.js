@@ -103,6 +103,7 @@ export class VTable {
 
   // ---------- rows ----------
   setRows(rows, { keepScroll = false } = {}) {
+    this.finishEdit(true);
     this.rows = rows;
     if (!keepScroll) { this.scroller.scrollTop = 0; this.sel = -1; }
     this.body.style.height = rows.length * this.rowH + 'px';
@@ -177,6 +178,8 @@ export class VTable {
       }
       const t = colText(def, s);
       if (cell.textContent !== t) { cell.textContent = t; cell.title = t.length > 24 ? t : ''; }
+      const ed = !!this.o.isEdited?.(s, c.key);
+      if (cell.classList.contains('edited') !== ed) cell.classList.toggle('edited', ed);
     });
   }
 
@@ -217,10 +220,12 @@ export class VTable {
     const star = e.target.closest('.star');
     if (star) return this.o.onRate(h.s, +star.dataset.r);
     if (h.key === 'art') return this.o.onPlay(h.s, h.i);
+    if (this.o.editMode?.() && this.o.canEdit?.(h.key)) return this.startEdit(h.i, h.key);
     this.o.onCell(h.s, h.key, h.i, e);
   }
   onDbl(e) {
     const h = this.hit(e);
+    if (this.o.editMode?.()) return;
     if (h && h.key !== 'art' && !e.target.closest('.star,.rowmenu')) { this.o.closeMenus?.(); this.o.onPlay(h.s, h.i); }
   }
   onContext(e) {
@@ -241,7 +246,58 @@ export class VTable {
       this.schedule(true);
     } else if (e.key === 'Enter' && this.sel >= 0) {
       this.o.onPlay(this.rows[this.sel], this.sel);
+    } else if (e.key === 'F2' && this.sel >= 0) {
+      e.preventDefault();
+      this.o.onEditRow?.(this.rows[this.sel], this.sel);
     }
+  }
+
+  // ---------- inline editing ----------
+  // Enter = save (and, in edit mode, move down a row) · Tab / Shift-Tab = next / previous field · Esc = cancel
+  startEdit(i, key, initial) {
+    this.finishEdit(true);
+    if (i < 0 || i >= this.rows.length || !this.o.canEdit?.(key)) return;
+    const k = this.cols.findIndex((c) => c.key === key);
+    if (k < 0) return;
+    this.sel = i;
+    this.scrollToIndex(i);
+    this.render(true);
+    const row = this.pool.find((r) => !r.hidden && r._i === i);
+    if (!row) return;
+    const cell = row._cells[k];
+    const s = this.rows[i];
+    const inp = el('input', { class: 'vt-edit', type: 'text', value: initial ?? this.o.editValue(s, key), spellcheck: 'false', autocomplete: 'off', 'aria-label': 'Edit ' + COL[key].label });
+    Object.assign(inp.style, { top: i * this.rowH + 3 + 'px', height: this.rowH - 6 + 'px', left: cell.offsetLeft + 'px', width: Math.max(90, cell.offsetWidth) + 'px' });
+    const ed = (this.editing = { inp, s, i, key, start: this.o.editValue(s, key) });
+    // if the value isn't accepted (e.g. a bad year), reopen the same cell with what was typed
+    const retry = (r) => { if (r === false) { this.startEdit(i, key, inp.value); return true; } return false; };
+    inp.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Escape') { e.preventDefault(); this.finishEdit(false); this.scroller.focus(); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (retry(this.finishEdit(true))) return; if (this.o.editMode?.()) this.startEdit(i + 1, key); else this.scroller.focus(); }
+      else if (e.key === 'Tab') {
+        e.preventDefault();
+        if (retry(this.finishEdit(true))) return;
+        const keys = this.cols.map((c) => c.key).filter((x) => this.o.canEdit?.(x));
+        let n = keys.indexOf(key) + (e.shiftKey ? -1 : 1), r = i;
+        if (n >= keys.length) { n = 0; r++; } else if (n < 0) { n = keys.length - 1; r--; }
+        this.startEdit(r, keys[n]);
+      }
+    });
+    inp.addEventListener('blur', () => { if (this.editing === ed) this.finishEdit(true); });
+    this.body.append(inp);
+    inp.focus();
+    inp.select();
+  }
+  finishEdit(save) {
+    const ed = this.editing;
+    if (!ed) return;
+    this.editing = null;
+    ed.inp.remove();
+    let r;
+    if (save && ed.inp.value !== ed.start) r = this.o.onEdit(ed.s, ed.key, ed.inp.value);
+    this.schedule(true);
+    return r;
   }
   scrollToIndex(i, center = false) {
     const h = this.rowH, top = i * h, st = this.scroller.scrollTop, vh = this.scroller.clientHeight - this.head.offsetHeight;

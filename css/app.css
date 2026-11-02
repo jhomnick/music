@@ -344,3 +344,21 @@ dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(3px); }
   .nav-i .cnt { display: none; }
 }
 .hidden { display: none !important; }
+
+/* ---------- editing ---------- */
+#btn-edit.on { color: #fff; background: var(--accent); }
+.vt-edit { position: absolute; z-index: 2; box-sizing: border-box; padding: 0 9px; border-radius: 6px; border: 1.5px solid var(--accent); background: #0b0c10; color: var(--text); font-size: 13.5px; outline: none; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+#app.editing .vt-c[data-key=title], #app.editing .vt-c[data-key=artist], #app.editing .vt-c[data-key=albumArtist], #app.editing .vt-c[data-key=album],
+#app.editing .vt-c[data-key=genre], #app.editing .vt-c[data-key=year], #app.editing .vt-c[data-key=track], #app.editing .vt-c[data-key=file] { cursor: text; }
+#app.editing .vt-row:hover .vt-c[data-key]:not(.t-art):not(.t-rating):hover { box-shadow: inset 0 0 0 1px rgba(255,107,79,.55); border-radius: 5px; }
+.vt-c.edited { text-decoration: underline dotted rgba(255,107,79,.75); text-underline-offset: 3px; }
+.edit-hint { align-self: center; }
+.editgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.editgrid label.f { margin: 8px 0; }
+.editgrid label.f.wide, .dlg-b label.f.wide { grid-column: 1 / -1; }
+.dlg-b select { height: 38px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); padding: 0 10px; }
+.was { font-weight: 500; font-size: 11px; color: var(--accent); }
+@media (max-width: 760px) {
+  #btn-edit { display: none; }
+  .editgrid { grid-template-columns: 1fr; }
+}

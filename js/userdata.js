@@ -2,7 +2,7 @@
 // Conflict-free sync across devices: each device only writes its own counters (summed on read);
 // ratings and playlists are last-writer-wins by timestamp.
 import * as db from './db.js';
-import { lib } from './library.js';
+import { lib, derive } from './library.js';
 import { uid, debounce } from './util.js';
 
 export const UD_FILE = 'userdata.json';
@@ -15,7 +15,7 @@ export const deviceId = localStorage.getItem(DEV_KEY) || (() => {
 })();
 
 export let ud = empty();
-function empty() { return { format: 1, devices: {}, ratings: {}, playlists: {} }; }
+function empty() { return { format: 1, devices: {}, ratings: {}, playlists: {}, edits: {} }; }
 
 export const events = new EventTarget();
 const emit = (type, detail) => events.dispatchEvent(new CustomEvent(type, { detail }));
@@ -67,6 +67,62 @@ export function resetStats(id) {
   for (const d of Object.values(ud.devices)) if (d.stats[id]) { d.stats[id] = [0, 0, 0]; d.updated = Date.now(); }
   applySong(id);
   touch('stats', id);
+}
+
+// ---- song info corrections ----
+// Stored as per-field overrides ({songId: {field: [value, time, original]}}) rather than in the
+// library itself, so they survive rescans and sync to every device. value === null means "restored".
+export const EDITABLE = ['title', 'artist', 'albumArtist', 'album', 'genre', 'year', 'track'];
+
+export function editSongs(ids, patch) {
+  const now = Date.now();
+  for (const id of ids) {
+    const s = lib.byId.get(id);
+    if (!s) continue;
+    const rec = (ud.edits[id] ||= {});
+    for (const [f, v] of Object.entries(patch)) {
+      if (!EDITABLE.includes(f)) continue;
+      const prev = rec[f];
+      const orig = prev ? prev[2] : s[f] ?? null;
+      if (v === null) { if (prev) rec[f] = [null, now, orig]; continue; } // restore
+      if ((s[f] ?? '') === v) continue;
+      rec[f] = [v, now, orig];
+    }
+    applyEdit(s);
+  }
+  touch('edit', ids.length === 1 ? ids[0] : null);
+}
+
+export function revertSong(id) {
+  const rec = ud.edits[id];
+  if (!rec) return;
+  editSongs([id], Object.fromEntries(Object.keys(rec).map((f) => [f, null])));
+}
+
+export function hasEdits(id) {
+  const rec = ud.edits[id];
+  return !!rec && Object.values(rec).some((x) => x[0] !== null);
+}
+
+export function originalValue(id, f) {
+  const x = ud.edits[id]?.[f];
+  return x ? x[2] : undefined;
+}
+
+function applyEdit(s) {
+  const rec = ud.edits[s.id];
+  if (!rec) return false;
+  let changed = false;
+  for (const [f, [v, , orig]] of Object.entries(rec)) {
+    const val = v === null ? orig : v;
+    if ((s[f] ?? null) !== (val ?? null)) { s[f] = val ?? undefined; changed = true; }
+  }
+  if (changed) { s.edited = 1; derive(s, true); }
+  return changed;
+}
+export function applyEdits() {
+  for (const id of Object.keys(ud.edits)) { const s = lib.byId.get(id); if (s) applyEdit(s); }
+  lib.version++;
 }
 
 // ---- playlists ----
@@ -124,6 +180,7 @@ export function applyAll() {
     const s = lib.byId.get(id);
     if (s) s._rating = r[0];
   }
+  applyEdits();
   applyMembership();
 }
 
@@ -148,6 +205,11 @@ export function merge(a, b) {
     for (const [id, r] of Object.entries(src)) if (!out.ratings[id] || r[1] > out.ratings[id][1]) out.ratings[id] = r;
   for (const src of [a.playlists || {}, b.playlists || {}])
     for (const [id, p] of Object.entries(src)) if (!out.playlists[id] || p.updated > out.playlists[id].updated) out.playlists[id] = p;
+  for (const src of [a.edits || {}, b.edits || {}])
+    for (const [id, rec] of Object.entries(src)) {
+      const o = (out.edits[id] ||= {});
+      for (const [f, x] of Object.entries(rec)) if (!o[f] || x[1] > o[f][1]) o[f] = x;
+    }
   return out;
 }
 
